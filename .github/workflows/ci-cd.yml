@@ -1,51 +1,16 @@
-# on:
-#   push:
-#     branches: [ main ]
-
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: ⬇️ Checkout repo
-#         uses: actions/checkout@v4
-
-#       - name: 🔧 Setup Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 20
-#           cache: npm
-
-#       - name: 📦 Install dependencies
-#         run: npm install
-
-#       - name: 🧪 Run tests
-#         run: npm run test
-
-#       - name: ▶️ Install Vercel CLI
-#         run: npm install -g vercel
-
-#       - name: 🚀 Deploy to Vercel
-#         run: vercel --token ${{ secrets.VERCEL_TOKEN }} --prod
-
-
-name: Deploy to Vercel
-
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: ["main"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Install Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -53,15 +18,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests
-        run: npm run test
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
+      - name: Build
+        run: npm run build
 
       - name: Deploy to Vercel
-        run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} --project=${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --project=${{ secrets.VERCEL_PROJECT_ID }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
