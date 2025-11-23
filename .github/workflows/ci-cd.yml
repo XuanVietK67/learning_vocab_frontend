@@ -1,39 +1,29 @@
-name: CI
-
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: npm install
 
-      - name: Build Vite project
-        run: npm run build
+      - name: 🧪 Run tests
+        run: npm run test
 
-      - name: Run tests
-        run: npm test
+      - name: ▶️ Install Vercel CLI
+        run: npm install -g vercel
 
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v21
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: .
-          prod: true
+      - name: 🚀 Deploy to Vercel
+        run: vercel --token ${{ secrets.VERCEL_TOKEN }} --prod
