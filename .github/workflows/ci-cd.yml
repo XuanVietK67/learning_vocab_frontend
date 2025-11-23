@@ -26,5 +26,14 @@ jobs:
       - name: Build Vite project
         run: npm run build
 
-      - name: Run tests (nếu có)
+      - name: Run tests
         run: npm test
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v21
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: .
+          prod: true
