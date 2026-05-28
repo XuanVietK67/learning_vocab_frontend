@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,10 +11,17 @@ import {
   deleteExampleAction,
   deleteSenseAction,
   deleteTranslationAction,
+  patchExampleAction,
   patchSenseAction,
+  patchTranslationAction,
   reorderSensesAction,
 } from "@/lib/actions/admin-vocab";
-import type { AdminSense, AdminVocabulary } from "@/lib/api/admin-vocab";
+import type {
+  AdminExample,
+  AdminSense,
+  AdminTranslation,
+  AdminVocabulary,
+} from "@/lib/api/admin-vocab";
 import { Card } from "../../../../_shell/card";
 
 type Props = { vocab: AdminVocabulary };
@@ -236,21 +243,14 @@ function TranslationsList({ vocabId, sense }: { vocabId: string; sense: AdminSen
           </p>
         ) : (
           sense.translations.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-lg bg-bg-soft px-3 py-2 text-sm">
-              <span className="rounded-md bg-accent-soft px-2 py-0.5 font-mono text-[0.7rem] font-semibold uppercase text-accent">
-                {t.language}
-              </span>
-              <span className="flex-1 text-ink">{t.translation}</span>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => del(t.id)}
-                className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-60"
-                aria-label="Delete translation"
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-              </button>
-            </div>
+            <TranslationRow
+              key={t.id}
+              vocabId={vocabId}
+              senseId={sense.id}
+              translation={t}
+              onDelete={() => del(t.id)}
+              listPending={pending}
+            />
           ))
         )}
       </div>
@@ -309,21 +309,14 @@ function ExamplesList({ vocabId, sense }: { vocabId: string; sense: AdminSense }
           </p>
         ) : (
           sense.examples.map((ex) => (
-            <div key={ex.id} className="flex items-start gap-2 rounded-lg bg-bg-soft px-3 py-2 text-sm">
-              <div className="flex-1 space-y-1">
-                <p className="text-ink">{ex.sentence}</p>
-                {ex.translation && <p className="text-xs text-muted-foreground">{ex.translation}</p>}
-              </div>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => del(ex.id)}
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-60"
-                aria-label="Delete example"
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-              </button>
-            </div>
+            <ExampleRow
+              key={ex.id}
+              vocabId={vocabId}
+              senseId={sense.id}
+              example={ex}
+              onDelete={() => del(ex.id)}
+              listPending={pending}
+            />
           ))
         )}
       </div>
@@ -349,6 +342,209 @@ function ExamplesList({ vocabId, sense }: { vocabId: string; sense: AdminSense }
           <Plus className="size-3.5" aria-hidden /> Add
         </button>
       </div>
+    </div>
+  );
+}
+
+type TranslationRowProps = {
+  vocabId: string;
+  senseId: string;
+  translation: AdminTranslation;
+  onDelete: () => void;
+  listPending: boolean;
+};
+
+function TranslationRow({ vocabId, senseId, translation, onDelete, listPending }: TranslationRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [lang, setLang] = useState(translation.language);
+  const [text, setText] = useState(translation.translation);
+  const [pending, startTransition] = useTransition();
+
+  function cancel() {
+    setLang(translation.language);
+    setText(translation.translation);
+    setEditing(false);
+  }
+
+  function save() {
+    if (!lang.trim() || !text.trim()) return;
+    startTransition(async () => {
+      const res = await patchTranslationAction(vocabId, senseId, translation.id, {
+        language: lang.trim(),
+        translation: text.trim(),
+      });
+      if (res.success) {
+        toast.success("Translation saved");
+        setEditing(false);
+      } else {
+        toast.error(res.error ?? "Could not save translation.");
+      }
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-bg-soft px-3 py-2 text-sm">
+        <Input
+          className={`${inputCls} max-w-24`}
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+        />
+        <Input
+          className={inputCls}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={pending || !lang.trim() || !text.trim()}
+          className="inline-flex size-7 items-center justify-center rounded-lg text-success transition-colors hover:bg-[color:color-mix(in_oklab,var(--success)_14%,transparent)] disabled:opacity-60"
+          aria-label="Save translation"
+        >
+          <Check className="size-4" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={cancel}
+          disabled={pending}
+          className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[color:var(--hover)] disabled:opacity-60"
+          aria-label="Cancel edit"
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-bg-soft px-3 py-2 text-sm">
+      <span className="rounded-md bg-accent-soft px-2 py-0.5 font-mono text-[0.7rem] font-semibold uppercase text-accent">
+        {translation.language}
+      </span>
+      <span className="flex-1 text-ink">{translation.translation}</span>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        disabled={listPending}
+        className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-60"
+        aria-label="Edit translation"
+      >
+        <Pencil className="size-3.5" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={listPending}
+        className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-60"
+        aria-label="Delete translation"
+      >
+        <Trash2 className="size-3.5" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+type ExampleRowProps = {
+  vocabId: string;
+  senseId: string;
+  example: AdminExample;
+  onDelete: () => void;
+  listPending: boolean;
+};
+
+function ExampleRow({ vocabId, senseId, example, onDelete, listPending }: ExampleRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [sentence, setSentence] = useState(example.sentence);
+  const [translation, setTranslation] = useState(example.translation ?? "");
+  const [pending, startTransition] = useTransition();
+
+  function cancel() {
+    setSentence(example.sentence);
+    setTranslation(example.translation ?? "");
+    setEditing(false);
+  }
+
+  function save() {
+    if (!sentence.trim()) return;
+    startTransition(async () => {
+      const res = await patchExampleAction(vocabId, senseId, example.id, {
+        sentence: sentence.trim(),
+        translation: translation.trim() || null,
+      });
+      if (res.success) {
+        toast.success("Example saved");
+        setEditing(false);
+      } else {
+        toast.error(res.error ?? "Could not save example.");
+      }
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="space-y-2 rounded-lg bg-bg-soft px-3 py-2 text-sm">
+        <Input
+          className={inputCls}
+          value={sentence}
+          onChange={(e) => setSentence(e.target.value)}
+          autoFocus
+        />
+        <div className="flex items-center gap-2">
+          <Input
+            className={inputCls}
+            value={translation}
+            onChange={(e) => setTranslation(e.target.value)}
+            placeholder="translation (optional)"
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={pending || !sentence.trim()}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-success transition-colors hover:bg-[color:color-mix(in_oklab,var(--success)_14%,transparent)] disabled:opacity-60"
+            aria-label="Save example"
+          >
+            <Check className="size-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={cancel}
+            disabled={pending}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[color:var(--hover)] disabled:opacity-60"
+            aria-label="Cancel edit"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg bg-bg-soft px-3 py-2 text-sm">
+      <div className="flex-1 space-y-1">
+        <p className="text-ink">{example.sentence}</p>
+        {example.translation && <p className="text-xs text-muted-foreground">{example.translation}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        disabled={listPending}
+        className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-60"
+        aria-label="Edit example"
+      >
+        <Pencil className="size-3.5" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={listPending}
+        className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-60"
+        aria-label="Delete example"
+      >
+        <Trash2 className="size-3.5" aria-hidden />
+      </button>
     </div>
   );
 }

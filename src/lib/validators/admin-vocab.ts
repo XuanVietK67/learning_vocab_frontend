@@ -60,8 +60,22 @@ export type PatchSenseInput = z.infer<typeof PatchSenseSchema>;
 export const AddTranslationSchema = TranslationSchema;
 export type AddTranslationInput = z.infer<typeof AddTranslationSchema>;
 
+export const PatchTranslationSchema = z.object({
+  language: z.string().regex(LANG_CODE).optional(),
+  translation: z.string().min(1).max(500).optional(),
+  note: z.string().max(500).nullish(),
+});
+export type PatchTranslationInput = z.infer<typeof PatchTranslationSchema>;
+
 export const AddExampleSchema = ExampleSchema;
 export type AddExampleInput = z.infer<typeof AddExampleSchema>;
+
+export const PatchExampleSchema = z.object({
+  sentence: z.string().min(1).max(500).optional(),
+  translation: z.string().max(500).nullish(),
+  source: z.string().max(64).nullish(),
+});
+export type PatchExampleInput = z.infer<typeof PatchExampleSchema>;
 
 export const ReplaceTopicsSchema = z.object({
   slugs: z.array(z.string().regex(/^[a-z0-9-]+$/i)).max(32),

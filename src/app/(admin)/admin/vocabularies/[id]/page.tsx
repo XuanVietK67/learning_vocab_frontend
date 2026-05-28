@@ -88,8 +88,9 @@ export default async function VocabularyDetailPage({ params, searchParams }: Pag
               {vocab.partOfSpeech && <Pill tone="neutral">{vocab.partOfSpeech}</Pill>}
               {vocab.cefrLevel && <Pill tone="accent">{vocab.cefrLevel}</Pill>}
               <Pill tone={sourceTone(vocab.source)}>{vocab.source}</Pill>
-              <Pill tone="neutral">{vocab.visibility}</Pill>
-              {vocab.isApproved ? <Pill tone="success">Approved</Pill> : <Pill tone="warn">Pending</Pill>}
+              {vocab.visibility && <Pill tone="neutral">{vocab.visibility}</Pill>}
+              {vocab.isApproved !== undefined &&
+                (vocab.isApproved ? <Pill tone="success">Approved</Pill> : <Pill tone="warn">Pending</Pill>)}
               {vocab.frequencyRank && (
                 <Pill tone="rainbow-4">rank #{vocab.frequencyRank}</Pill>
               )}

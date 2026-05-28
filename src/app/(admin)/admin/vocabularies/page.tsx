@@ -192,7 +192,7 @@ export default async function AdminVocabulariesPage({ searchParams }: PageProps)
                     </td>
                     <td className="px-3 py-3 text-ink-2">{v.senses?.length ?? 0}</td>
                     <td className="px-3 py-3 text-xs text-muted-foreground">
-                      {new Date(v.updatedAt).toLocaleDateString()}
+                      {v.updatedAt ? new Date(v.updatedAt).toLocaleDateString() : "—"}
                     </td>
                     <td className="px-3 py-3 text-right">
                       <div className="inline-flex items-center gap-1">

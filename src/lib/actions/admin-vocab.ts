@@ -11,7 +11,9 @@ import {
   AddTranslationSchema,
   BulkImportSchema,
   CreateVocabSchema,
+  PatchExampleSchema,
   PatchSenseSchema,
+  PatchTranslationSchema,
   PatchVocabSchema,
   ReplaceTopicsSchema,
   type AddExampleInput,
@@ -19,7 +21,9 @@ import {
   type AddTranslationInput,
   type BulkImportInput,
   type CreateVocabInput,
+  type PatchExampleInput,
   type PatchSenseInput,
+  type PatchTranslationInput,
   type PatchVocabInput,
 } from "@/lib/validators/admin-vocab";
 import { flattenZod, type ActionResult } from "./result";
@@ -200,6 +204,27 @@ export async function addTranslationAction(
   }
 }
 
+export async function patchTranslationAction(
+  vocabularyId: string,
+  senseId: string,
+  translationId: string,
+  input: PatchTranslationInput,
+): Promise<ActionResult> {
+  const gate = await requireAdmin();
+  if (gate) return gate;
+
+  const parsed = PatchTranslationSchema.safeParse(input);
+  if (!parsed.success) return { success: false, fieldErrors: flattenZod(parsed.error) };
+
+  try {
+    await adminVocabApi.patchTranslation(vocabularyId, senseId, translationId, parsed.data);
+    revalidatePath(`/admin/vocabularies/${vocabularyId}`);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: apiErrorMessage(e, "Could not save translation.") };
+  }
+}
+
 export async function deleteTranslationAction(
   vocabularyId: string,
   senseId: string,
@@ -234,6 +259,27 @@ export async function addExampleAction(
     return { success: true };
   } catch (e) {
     return { success: false, error: apiErrorMessage(e, "Could not add example.") };
+  }
+}
+
+export async function patchExampleAction(
+  vocabularyId: string,
+  senseId: string,
+  exampleId: string,
+  input: PatchExampleInput,
+): Promise<ActionResult> {
+  const gate = await requireAdmin();
+  if (gate) return gate;
+
+  const parsed = PatchExampleSchema.safeParse(input);
+  if (!parsed.success) return { success: false, fieldErrors: flattenZod(parsed.error) };
+
+  try {
+    await adminVocabApi.patchExample(vocabularyId, senseId, exampleId, parsed.data);
+    revalidatePath(`/admin/vocabularies/${vocabularyId}`);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: apiErrorMessage(e, "Could not save example.") };
   }
 }
 

@@ -39,11 +39,13 @@ export type AdminVocabulary = {
   frequencyRank: number | null;
   audioUrl: string | null;
   source: "system" | "user";
-  visibility: "system" | "private" | "public";
-  isApproved: boolean;
-  createdByUserId: string | null;
-  createdAt: string;
-  updatedAt: string;
+  // Admin-only fields returned by the LIST endpoint. The public GET used by
+  // the detail page does not include them, so they are optional here.
+  visibility?: "system" | "private" | "public";
+  isApproved?: boolean;
+  createdByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   senses: AdminSense[];
 };
 
@@ -129,8 +131,13 @@ export const adminVocabApi = {
       query: flattenQuery(query),
     }),
 
+  // Backend's /v1/admin/vocabularies has no single-GET route — only LIST,
+  // CREATE, bulk-import, PATCH, and DELETE. Use the public catalog endpoint
+  // for the full sense/translation/example tree. Admin-only metadata
+  // (visibility, isApproved, createdAt, …) isn't included in this response.
   get: (id: string, translationLang?: string) =>
-    request<AdminVocabulary>(`/v1/admin/vocabularies/${id}`, {
+    request<AdminVocabulary>(`/v1/vocabularies/${id}`, {
+      auth: false,
       query: { translationLang },
     }),
 
