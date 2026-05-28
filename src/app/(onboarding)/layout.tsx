@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 // Auth + onboarding gate.
 // - Anonymous → /login (with ?next= so they bounce back).
 // - Signed-in but email not verified → /verify-email (matches postAuthRedirect chain).
+// - Admin → /admin (admins skip the learner onboarding flow).
 // - Signed-in and already onboarded → home (no point being here).
 // - Signed-in, verified, not onboarded → render the flow.
 export default async function OnboardingLayout({
@@ -17,6 +18,7 @@ export default async function OnboardingLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/onboarding");
   if (!user.isEmailVerified) redirect(`/verify-email?email=${encodeURIComponent(user.email)}`);
+  if (user.role === "admin") redirect("/admin");
   if (user.isOnboarded) redirect("/");
 
   return (
