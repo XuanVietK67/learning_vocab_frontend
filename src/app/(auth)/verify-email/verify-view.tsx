@@ -6,15 +6,19 @@ import * as React from "react";
 import { ArrowRight } from "lucide-react";
 import { AuthCard, CardFoot, CardHead } from "@/components/auth/auth-card";
 import { Banner } from "@/components/auth/banner";
+import { Spinner } from "@/components/auth/spinner";
 import { VerifyLetter } from "@/components/auth/verify-letter";
 import { Button } from "@/components/ui/button";
+import { checkVerificationAction } from "@/lib/actions/check-verification";
 import { resendVerificationAction } from "@/lib/actions/stubs/resend-verification";
 
 export function VerifyEmailView({ email }: { email: string }) {
   const router = useRouter();
   const [cooldown, setCooldown] = React.useState(0);
   const [resent, setResent] = React.useState(false);
-  const [pending, startTransition] = React.useTransition();
+  const [notice, setNotice] = React.useState<{ kind: "info" | "error"; msg: string } | null>(null);
+  const [resendPending, startResend] = React.useTransition();
+  const [checkPending, startCheck] = React.useTransition();
 
   React.useEffect(() => {
     if (cooldown <= 0) return;
@@ -24,12 +28,33 @@ export function VerifyEmailView({ email }: { email: string }) {
 
   const onResend = () => {
     if (cooldown > 0) return;
-    startTransition(async () => {
+    setNotice(null);
+    startResend(async () => {
       const res = await resendVerificationAction({ email });
       if (res.success) {
         setResent(true);
         setCooldown(res.cooldownSeconds);
       }
+    });
+  };
+
+  const onContinue = () => {
+    setNotice(null);
+    startCheck(async () => {
+      const res = await checkVerificationAction();
+      if (res.state === "ok") {
+        router.push(res.redirect);
+        return;
+      }
+      if (res.state === "still-unverified") {
+        setNotice({
+          kind: "error",
+          msg: "We haven't received the verification yet. Click the link in your email, then try again.",
+        });
+        return;
+      }
+      // session expired — bounce to sign in
+      router.push("/login");
     });
   };
 
@@ -51,10 +76,21 @@ export function VerifyEmailView({ email }: { email: string }) {
         }
       />
 
-      {resent && <Banner kind="info">A new verification link is on its way.</Banner>}
+      {resent && !notice && <Banner kind="info">A new verification link is on its way.</Banner>}
+      {notice && <Banner kind={notice.kind}>{notice.msg}</Banner>}
 
-      <Button onClick={() => router.push("/login")} className="h-13 w-full gap-2 rounded-md bg-ink text-bg hover:bg-ink-2">
-        I&apos;ve verified — sign in <ArrowRight className="size-4" aria-hidden />
+      <Button
+        onClick={onContinue}
+        disabled={checkPending}
+        className="h-13 w-full gap-2 rounded-md bg-ink text-bg hover:bg-ink-2"
+      >
+        {checkPending ? (
+          <Spinner />
+        ) : (
+          <>
+            I&apos;ve verified — continue <ArrowRight className="size-4" aria-hidden />
+          </>
+        )}
       </Button>
 
       <CardFoot>
@@ -63,7 +99,7 @@ export function VerifyEmailView({ email }: { email: string }) {
           <button
             type="button"
             onClick={onResend}
-            disabled={pending || cooldown > 0}
+            disabled={resendPending || cooldown > 0}
             className="cursor-pointer border-b border-line-2 pb-px font-medium text-ink hover:border-ink disabled:cursor-default disabled:text-muted-2 disabled:hover:border-line-2"
           >
             {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend link"}

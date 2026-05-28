@@ -173,6 +173,40 @@ Return the currently authenticated user. **JWT required.**
 
 `role` is `"user"` or `"admin"`. Use it to gate admin UI surfaces.
 
+### `POST /v1/auth/email/send-verification`
+Email a 6‑digit verification code to the authenticated user. **JWT required.** No body.
+
+Throttling: max 3 requests per minute per caller, and a 60‑second cooldown between successive codes for the same user. Sending a new code invalidates any previous unconsumed code for the user.
+
+**Response 202**
+
+```json
+{ "expiresAt": "2026-05-26T08:40:00.000Z" }
+```
+
+**Errors**
+
+- `400` — `email already verified`
+- `429` — `please wait before requesting another code` (within the 60s cooldown). The response body includes `retryAfter` (seconds).
+- `503` — `failed to send verification email` (SMTP transport failed).
+
+### `POST /v1/auth/email/verify`
+Verify the 6‑digit code the user received by email. **JWT required.** On success the user's `isEmailVerified` flips to `true`.
+
+**Request body**
+
+```json
+{ "code": "482917" }
+```
+
+- `code`: exactly 6 digits (`^\d{6}$`).
+
+**Response 200** — full `UserResponse` (same shape as `GET /v1/auth/me`), with `isEmailVerified: true`.
+
+**Errors**
+
+- `400` — `email already verified` | `no active verification code, request a new one` | `invalid code` (response body includes `attemptsRemaining`) | `too many attempts, request a new code` (after 5 wrong attempts the code is invalidated; user must request a new one).
+
 ---
 
 ## Users — `/v1/users`
@@ -235,16 +269,38 @@ GET /v1/vocabularies?language=en&cefrLevel=A2&translationLang=vi&page=1&limit=20
     {
       "id": "c2a1...",
       "language": "en",
-      "lemma": "apple",
-      "partOfSpeech": "noun",
-      "ipa": "/ˈæp.əl/",
-      "cefrLevel": "A1",
-      "frequencyRank": 1234,
-      "audioUrl": "https://.../apple.mp3",
-      "imageUrl": null,
+      "lemma": "study",
+      "partOfSpeech": "verb",
+      "ipa": "/ˈstʌd.i/",
+      "cefrLevel": "A2",
+      "frequencyRank": 412,
+      "audioUrl": "https://.../study-v.mp3",
       "source": "system",
-      "translations": [
-        { "id": "...", "language": "vi", "translation": "quả táo", "note": null }
+      "senses": [
+        {
+          "id": "s-001",
+          "senseOrder": 1,
+          "gloss": "to learn for school/exam",
+          "definition": "spend time learning a subject, especially for a test",
+          "imageUrl": "https://.../study-learn.jpg",
+          "translations": [
+            { "id": "t-001", "language": "vi", "translation": "học, học tập", "note": null }
+          ],
+          "examples": [
+            { "id": "e-001", "sentence": "She studies biology at university.", "translation": "Cô ấy học sinh học ở trường đại học.", "source": "oxford" }
+          ]
+        },
+        {
+          "id": "s-002",
+          "senseOrder": 2,
+          "gloss": "to examine carefully",
+          "definition": null,
+          "imageUrl": null,
+          "translations": [
+            { "id": "t-002", "language": "vi", "translation": "nghiên cứu, xem xét kỹ", "note": null }
+          ],
+          "examples": []
+        }
       ]
     }
   ],
@@ -254,31 +310,14 @@ GET /v1/vocabularies?language=en&cefrLevel=A2&translationLang=vi&page=1&limit=20
 }
 ```
 
+A `Vocabulary` always carries one or more **senses** (distinct meanings). `translations[]` and `examples[]` live **inside** a sense — the top-level vocabulary no longer exposes them. Different senses can carry different `imageUrl` values; `audioUrl` lives on the vocabulary (pronunciation is shared across senses). Senses are returned ordered by `senseOrder ASC`.
+
 ### `GET /v1/vocabularies/:id`
-Fetch one vocabulary with its `examples[]` and `translations[]`. No auth.
+Fetch one vocabulary with all of its senses, translations, and examples. No auth.
 
-**Query**: `translationLang` (optional).
+**Query**: `translationLang` (optional — when set, filters translations inside every sense to that language).
 
-**Response 200**: a single `Vocabulary` object (same fields as `data[]` above, plus `examples[]`).
-
-```json
-{
-  "id": "c2a1...",
-  "language": "en",
-  "lemma": "apple",
-  "partOfSpeech": "noun",
-  "ipa": "/ˈæp.əl/",
-  "cefrLevel": "A1",
-  "frequencyRank": 1234,
-  "audioUrl": null,
-  "imageUrl": null,
-  "source": "system",
-  "translations": [ /* … */ ],
-  "examples": [
-    { "id": "…", "sentence": "I ate an apple.", "translation": "Tôi đã ăn một quả táo.", "source": null }
-  ]
-}
-```
+**Response 200**: a single `Vocabulary` object (same shape as `data[]` above).
 
 ---
 
@@ -287,7 +326,7 @@ Fetch one vocabulary with its `examples[]` and `translations[]`. No auth.
 The caller's own (`source = 'user'`, `visibility = 'private'`) words. All endpoints require JWT; cross-user access → `403`.
 
 ### `POST /v1/me/vocabularies`
-Create a personal word with optional nested translations, examples, and topic links (topic slugs must already exist).
+Create a personal word with one or more senses (meanings). Each sense carries its own translations, examples, and optional image. `topics[]` and `audioUrl` live at the vocabulary level. Topic slugs must already exist.
 
 **Request body**
 
@@ -299,16 +338,24 @@ Create a personal word with optional nested translations, examples, and topic li
   "ipa": "/ˌser.ənˈdɪp.ə.ti/",
   "cefrLevel": "C1",
   "audioUrl": null,
-  "imageUrl": null,
   "topics": ["abstract-ideas"],
-  "translations": [
-    { "language": "vi", "translation": "sự tình cờ may mắn" }
-  ],
-  "examples": [
-    { "sentence": "Meeting her was pure serendipity." }
+  "senses": [
+    {
+      "gloss": "fortunate accident",
+      "definition": "the occurrence of events by chance in a happy or beneficial way",
+      "imageUrl": null,
+      "translations": [
+        { "language": "vi", "translation": "sự tình cờ may mắn" }
+      ],
+      "examples": [
+        { "sentence": "Meeting her was pure serendipity." }
+      ]
+    }
   ]
 }
 ```
+
+- `senses`: required, 1–16 items. Each sense is `{ gloss?, definition?, imageUrl?, translations?[], examples?[] }`. Order in the request becomes `senseOrder` (1-indexed).
 
 **Response 201**: `Vocabulary` object. **409** if you already own `(language, lemma, partOfSpeech)`.
 
@@ -320,10 +367,10 @@ List your own vocabularies, newest first.
 **Response 200**: paginated `Vocabulary` list.
 
 ### `GET /v1/me/vocabularies/:id`
-**Query**: `translationLang`. **Response 200**: `Vocabulary` with `examples[]` and `translations[]`. **403** if not the owner.
+**Query**: `translationLang`. **Response 200**: `Vocabulary` with its `senses[]` (each containing `translations[]` and `examples[]`). **403** if not the owner.
 
 ### `PATCH /v1/me/vocabularies/:id`
-Partial update of top-level fields only (`language`, `lemma`, `partOfSpeech`, `ipa`, `cefrLevel`, `frequencyRank`, `audioUrl`, `imageUrl`). Translations/examples/topics are not patched here.
+Partial update of top-level fields only (`language`, `lemma`, `partOfSpeech`, `ipa`, `cefrLevel`, `frequencyRank`, `audioUrl`). Senses, translations, examples, and topic links are not patched here — re-create the vocabulary or use dedicated mutation paths once they exist.
 
 **Response 200**: updated `Vocabulary`.
 
@@ -340,14 +387,25 @@ Requires JWT **and** `role = 'admin'` (`403` otherwise).
 Body identical to `POST /v1/me/vocabularies`, but `source` is `'system'` on the resulting row. **409** on duplicate natural key — use bulk-import for upsert semantics.
 
 ### `POST /v1/admin/vocabularies/bulk-import`
-Idempotent upsert of up to 500 items in one transaction.
+Idempotent upsert of up to 500 items in one transaction. Each item carries the full sense tree (same shape as `POST /v1/me/vocabularies`).
 
 **Request body**
 
 ```json
 {
   "items": [
-    { "language": "en", "lemma": "apple", "partOfSpeech": "noun", "translations": [ /* … */ ] }
+    {
+      "language": "en",
+      "lemma": "apple",
+      "partOfSpeech": "noun",
+      "senses": [
+        {
+          "gloss": "fruit",
+          "translations": [ { "language": "vi", "translation": "quả táo" } ],
+          "examples": [ { "sentence": "I ate an apple." } ]
+        }
+      ]
+    }
   ]
 }
 ```
@@ -359,11 +417,14 @@ Idempotent upsert of up to 500 items in one transaction.
   "upserted": 500,
   "inserted": 320,
   "updated": 180,
+  "sensesAdded": 540,
   "translationsAdded": 412,
   "examplesAdded": 87,
   "topicLinksAdded": 245
 }
 ```
+
+Upsert semantics for senses: existing senses are matched by `senseOrder` (1-indexed by position in the request). Existing positions are patched in place; new positions are inserted. Translations are matched by `(language, translation)` within a sense and inserted if missing. Examples are append-only and only inserted when the target sense had none beforehand.
 
 ### `PATCH /v1/admin/vocabularies/:id`
 Same partial-update semantics as the user endpoint. Returns the updated `Vocabulary`.
@@ -579,7 +640,7 @@ Fetch due cards (`nextReviewAt <= now`), oldest-due first.
     "lastReviewedAt": "2026-05-25T07:00:00.000Z",
     "correctCount": 1,
     "incorrectCount": 0,
-    "vocabulary": { /* full Vocabulary with translations */ }
+    "vocabulary": { /* full Vocabulary with senses[] → translations[] + examples[] */ }
   }
 ]
 ```
@@ -630,3 +691,213 @@ Home-screen snapshot.
 ```
 
 `streakDays` counts only if the most recent review date is today or yesterday (UTC days).
+
+---
+
+## Learn — `/v1/me/learn`
+
+Context-anchored learning sessions. The server picks due cards, generates one question per card from its example sentences, and HMAC-signs each item. Submit each answer separately; the server grades it and feeds the existing SM-2 pipeline.
+
+**Six question types** (discriminated by `prompt.type`):
+- `cloze_mcq` — sentence with a blank, 4 word options
+- `cloze_typing` — sentence with a blank, free-text answer
+- `meaning_in_context` — sentence with highlighted word, 4 translation options (one is the trap from a different sense)
+- `sentence_build` — translation prompt, shuffled tokens to arrange
+- `sense_disambiguation` — two example sentences side-by-side, match each to its sense's translation
+- `listening_cloze` — audio + sentence with a blank, 4 word options
+
+**Type selection** is driven by SRS status: `new`/`learning` → recognition (`cloze_mcq`, `meaning_in_context`); `review` → production (`cloze_typing`, `sentence_build`); `mastered` → `sentence_build` or `sense_disambiguation`. `listening_cloze` is substituted in when audio is available. Types requiring extra data (multiple senses, translation language) are skipped silently if the card lacks it.
+
+### `POST /v1/me/learn/session`
+Build a session of N questions for a chosen learning mode. The server's vocab picker selects suitable vocab per mode and, for `daily/topic/deck`, auto-enrolls fresh words into the caller's progress as a side effect (count returned in `enrolledNewlyCount`). `daily` and `topic` require onboarding to be complete; otherwise the server returns `400`.
+
+**Modes**
+
+| `mode` | What it picks | Fresh auto-enrolled? | Required body fields |
+|---|---|---|---|
+| `daily` | All due cards first, then top up with CEFR-matched fresh vocab in the user's `targetLanguage` (±1 band, sorted by `frequency_rank`) | Yes | `mode` |
+| `topic` | Due + fresh vocab tagged with `topicSlug` at the user's CEFR ±1, in `targetLanguage`. Includes the user's own (`source='user'`) vocab tagged with the topic. | Yes | `mode`, `topicSlug` |
+| `deck` | Due deck-member cards first, then fresh deck members (in deck position order) | Yes | `mode`, `deckId` |
+| `review` | Only already-enrolled, currently-due cards, excluding `status=new` — pure consolidation | **No** | `mode` |
+
+**Request body**
+
+```json
+{
+  "mode": "daily",
+  "limit": 15,
+  "translationLang": "vi"
+}
+```
+
+```json
+{ "mode": "topic", "topicSlug": "food", "limit": 10, "translationLang": "vi" }
+```
+
+```json
+{ "mode": "deck", "deckId": "8c1f7d34-...", "limit": 20, "translationLang": "vi" }
+```
+
+```json
+{ "mode": "review", "limit": 15, "translationLang": "vi" }
+```
+
+`mode` is required. `topicSlug` is required iff `mode=topic`; `deckId` is required iff `mode=deck`. `limit` is clamped to `[1, 50]` (default 15). `translationLang` enables styles that need a target-language translation (`meaning_in_context`, `sentence_build`, `sense_disambiguation`) and provides `hintTranslation` for cloze styles.
+
+**Response 200**
+
+```json
+{
+  "sessionId": "f3c8a212-7e0b-4b27-9a8e-7e1c1c1d8a2e",
+  "mode": "daily",
+  "enrolledNewlyCount": 7,
+  "emptyReason": null,
+  "items": [
+    {
+      "sessionItemId": "0c2b9f1a-...",
+      "vocabularyId": "a4d2...",
+      "lemma": "study",
+      "exampleId": "7b2e...",
+      "type": "cloze_mcq",
+      "nonce": "1c8f9b22-...",
+      "issuedAtMs": 1748284800000,
+      "signature": "9f7e6b3a1c2d...",
+      "prompt": {
+        "type": "cloze_mcq",
+        "sentenceWithBlank": "She _____ biology at university.",
+        "hintTranslation": "Cô ấy ___ sinh học ở trường đại học.",
+        "audioUrl": "https://cdn.example/audio/study.mp3",
+        "options": ["studies", "teaches", "writes", "speaks"]
+      }
+    }
+  ]
+}
+```
+
+Each item has an envelope (`sessionItemId`, `vocabularyId`, `lemma`, `exampleId`, `type`, `nonce`, `issuedAtMs`, `signature`) plus a typed `prompt`. **Echo `nonce`, `issuedAtMs`, `signature` verbatim** in the answer payload — they prove the item was issued to this user for this card.
+
+#### Empty response (`items: []`)
+
+When the picker finds nothing to learn, `items: []` is returned **with a populated `emptyReason`**:
+
+| `emptyReason` | When | Recommended frontend action |
+|---|---|---|
+| `no_due_cards` | `mode=review` and the user has progress rows but no card is currently due | Show "All caught up — come back later" |
+| `no_enrollment` | `mode=review` and the user has zero progress rows (never enrolled anything) | Suggest switching to Daily / Topic / Deck mode |
+| `no_more_at_level` | `mode=daily` or `mode=topic` and there's no due card AND no fresh vocab matches the user's `targetLanguage + CEFR ±1` filter (and topic, for topic mode) | Suggest a different topic or wider CEFR; for daily, the user has likely consumed the catalog at their level |
+| `deck_exhausted` | `mode=deck` and every member of the deck is already-enrolled-and-not-yet-due (deck is fully on-schedule) | Show "Deck mastered for now — review later" |
+
+`emptyReason` is always `null` when `items[]` has at least one element.
+
+#### `prompt` shapes by type
+
+**`cloze_mcq`** — show `sentenceWithBlank`, render `options` as 4 buttons. `hintTranslation` and `audioUrl` are nullable.
+
+```json
+{ "type": "cloze_mcq", "sentenceWithBlank": "She _____ biology at university.",
+  "hintTranslation": "Cô ấy ___ sinh học ở trường đại học.",
+  "audioUrl": null, "options": ["studies", "teaches", "writes", "speaks"] }
+```
+
+**`cloze_typing`** — show `sentenceWithBlank` + a text input. No `options`.
+
+```json
+{ "type": "cloze_typing", "sentenceWithBlank": "I need to _____ for the exam tomorrow.",
+  "hintTranslation": "Tôi cần ___ cho kỳ thi ngày mai.", "audioUrl": null }
+```
+
+**`meaning_in_context`** — show `sentence`, highlight the substring at `[highlightedSpan.start, highlightedSpan.end)`, render `options` as 4 buttons (translations in `translationLang`).
+
+```json
+{ "type": "meaning_in_context",
+  "sentence": "Scientists are studying the effects of climate change.",
+  "highlightedSpan": { "start": 15, "end": 23 },
+  "options": ["nghiên cứu", "học tập", "giảng dạy", "viết ra"] }
+```
+
+**`sentence_build`** — show `translation` (L1 prompt), render `tokens` as drag-and-drop tiles in the given (already shuffled) order. User submits the joined sequence.
+
+```json
+{ "type": "sentence_build",
+  "translation": "Anh ấy đã học tiếng Pháp trong ba năm.",
+  "tokens": ["French", "He", "for", "studied", "three", "years"] }
+```
+
+**`sense_disambiguation`** — show both `sentences[]` side by side, render the two `options[]` as choices. User picks the option that matches the **first** sentence; the answer should be that option's translation string.
+
+```json
+{ "type": "sense_disambiguation",
+  "sentences": [
+    { "exampleId": "7b2e...", "sentence": "She studies biology at university." },
+    { "exampleId": "9d3f...", "sentence": "She studied his face for any sign of emotion." }
+  ],
+  "options": ["nghiên cứu", "học tập"] }
+```
+
+**`listening_cloze`** — play `audioUrl`, show `sentenceWithBlank`, render `options` as 4 buttons.
+
+```json
+{ "type": "listening_cloze", "audioUrl": "https://cdn.example/audio/study.mp3",
+  "sentenceWithBlank": "He _____ French for three years.",
+  "hintTranslation": "Anh ấy đã ___ tiếng Pháp trong ba năm.",
+  "options": ["studied", "spoke", "wrote", "taught"] }
+```
+
+### `POST /v1/me/learn/answer`
+Submit one answer. Server verifies the HMAC + 30-min TTL, re-derives the correct answer, grades the response, and updates the user's SRS state (same SM-2 pipeline as `/v1/me/progress/review`).
+
+**Request body**
+
+```json
+{
+  "vocabularyId": "a4d2...",
+  "type": "cloze_mcq",
+  "exampleId": "7b2e...",
+  "userAnswer": "studies",
+  "latencyMs": 4200,
+  "nonce": "1c8f9b22-...",
+  "issuedAtMs": 1748284800000,
+  "signature": "9f7e6b3a1c2d...",
+  "translationLang": "vi",
+  "sessionId": "f3c8a212-..."
+}
+```
+
+`userAnswer` encoding by type:
+- `cloze_mcq`, `listening_cloze`, `meaning_in_context`, `sense_disambiguation` — the **string** of the chosen option (not its index)
+- `cloze_typing` — the user's typed answer (free text)
+- `sentence_build` — the tokens joined by single spaces in the order the user arranged them (e.g. `"He studied French for three years"`)
+
+`translationLang` must match what was sent to `/v1/me/learn/session` — it's part of the HMAC. `sessionId` is optional and ignored by the server. `latencyMs` is the time (ms) between question display and answer submit; the server uses it to choose between quality 5 (fast) and 4 (slow) for correct answers.
+
+**Response 200**
+
+```json
+{
+  "correct": true,
+  "correctAnswer": "studies",
+  "quality": 5,
+  "progress": {
+    "id": "p1...",
+    "vocabularyId": "a4d2...",
+    "status": "learning",
+    "repetitions": 1,
+    "easeFactor": 2.6,
+    "intervalDays": 1,
+    "nextReviewAt": "2026-05-28T08:30:00.000Z",
+    "lastReviewedAt": "2026-05-27T08:30:00.000Z",
+    "correctCount": 4,
+    "incorrectCount": 1
+  }
+}
+```
+
+**Quality mapping** (SM-2 scale 0–5):
+- MCQ-style (`cloze_mcq`, `meaning_in_context`, `sense_disambiguation`, `listening_cloze`): correct + fast (`latencyMs ≤ 8000`) → 5; correct + slow → 4; wrong → 2.
+- `cloze_typing`: exact match → 5/4 by latency; Levenshtein distance 1 → 3 (not counted as correct); else 2.
+- `sentence_build`: exact joined match → 5/4 by latency; same tokens with exactly one swap (2 positions off) → 3; else 2.
+
+**Errors**
+- `400` validation (missing/invalid body fields)
+- `401` invalid or expired signature (TTL is 30 minutes — refresh by calling `/session` again)
+- `404` vocabulary not found, or the user is not enrolled in it (call `/v1/me/progress/enroll` first)

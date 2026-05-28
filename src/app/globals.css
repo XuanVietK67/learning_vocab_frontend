@@ -3,7 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  /* shadcn semantic tokens mapped to Lexa palette */
+  /* shadcn semantic tokens mapped to Lexa kawaii palette */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -39,42 +39,62 @@
   --color-warn: var(--warn);
   --color-hover: var(--hover);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-instrument-serif), Georgia, serif;
-  --font-heading: var(--font-instrument-serif), Georgia, serif;
+  /* Kawaii rainbow accents — used across stepper, list rows, prof markers, goal tiles */
+  --color-rainbow-1: var(--rainbow-1);
+  --color-rainbow-2: var(--rainbow-2);
+  --color-rainbow-3: var(--rainbow-3);
+  --color-rainbow-4: var(--rainbow-4);
+  --color-rainbow-5: var(--rainbow-5);
+
+  --font-sans: var(--font-nunito);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-heading: var(--font-fraunces), Georgia, serif;
 
   --radius-xs: calc(var(--radius) * 0.4);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) * 1.8);
-  --radius-xl: calc(var(--radius) * 2.4);
+  --radius-lg: calc(var(--radius) * 1.45);
+  --radius-xl: calc(var(--radius) * 2);
 
   --animate-fade-up: fade-up 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-shake: shake 0.4s ease-in-out;
   --animate-spin-slow: spin 0.7s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pop: pop 0.48s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  --animate-enter-fwd: enter-fwd 0.48s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  --animate-enter-bwd: enter-bwd 0.48s cubic-bezier(0.2, 1.4, 0.4, 1) both;
 }
 
 :root {
   color-scheme: light;
 
-  /* Lexa palette */
-  --bg:           #f6f3eb;
-  --bg-soft:      #efeadf;
-  --ink:          #14130f;
-  --ink-2:        #2a2823;
-  --muted-fg:     #7a766a;
-  --muted-2:      #a8a496;
-  --line:         #e6e1d4;
-  --line-2:       #d9d2c0;
-  --hover:        rgb(20 19 15 / 0.04);
-  --accent-color: #0f5132;
+  /* Kawaii cream palette (Rainbow Cream from the design bundle) */
+  --bg:           #fff8e8;
+  --bg-soft:      #fff1d6;
+  --ink:          #2b1d1a;
+  --ink-2:        #4a342f;
+  --muted-fg:     #8b7268;
+  --muted-2:      #b8a297;
+  --line:         #ffe0c7;
+  --line-2:       #f6cda9;
+  --hover:        rgb(43 29 26 / 0.04);
+
+  --accent-color: #ff6b6b;
   --accent-ink:   #ffffff;
-  --accent-soft:  rgb(15 81 50 / 0.08);
-  --danger:       #9b1c1c;
-  --danger-soft:  rgb(155 28 28 / 0.08);
-  --success:      #15803d;
-  --warn:         #b45309;
+  --accent-soft:  rgb(255 107 107 / 0.12);
+
+  /* Rainbow accents — coral, gold, mint, periwinkle, lavender */
+  --rainbow-1: #ff6b6b;
+  --rainbow-2: #ffd166;
+  --rainbow-3: #5bc490;
+  --rainbow-4: #7c9cff;
+  --rainbow-5: #c77dff;
+
+  --danger:       #d04646;
+  --danger-soft:  rgb(208 70 70 / 0.10);
+  --success:      #2f9b6a;
+  --warn:         #d49019;
 
   /* shadcn semantic bindings */
   --background:           var(--bg);
@@ -83,8 +103,8 @@
   --card-foreground:      var(--ink);
   --popover:              #ffffff;
   --popover-foreground:   var(--ink);
-  --primary:              var(--ink);
-  --primary-foreground:   var(--bg);
+  --primary:              var(--accent-color);
+  --primary-foreground:   var(--accent-ink);
   --secondary:            var(--bg-soft);
   --secondary-foreground: var(--ink);
   --muted:                var(--line);
@@ -96,7 +116,7 @@
   --input:                var(--line-2);
   --ring:                 var(--accent-color);
 
-  --radius: 10px;
+  --radius: 22px;
 }
 
 @layer base {
@@ -107,9 +127,11 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "ss01", "cv01";
+    position: relative;
+    overflow-x: hidden;
   }
   html {
     height: 100%;
@@ -120,15 +142,41 @@
   }
 }
 
-/* Subtle paper grain — fixed full-viewport overlay */
-.grain {
+/* Kawaii wavy multi-color background — fixed full-viewport, sits behind everything */
+.kawaii-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle at 6% 18%,  color-mix(in oklab, var(--rainbow-1) 32%, transparent), transparent 28%),
+    radial-gradient(circle at 92% 8%,  color-mix(in oklab, var(--rainbow-2) 30%, transparent), transparent 26%),
+    radial-gradient(circle at 96% 78%, color-mix(in oklab, var(--rainbow-4) 28%, transparent), transparent 30%),
+    radial-gradient(circle at 12% 92%, color-mix(in oklab, var(--rainbow-3) 28%, transparent), transparent 28%),
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--rainbow-5) 14%, transparent), transparent 40%);
+}
+
+/* Floating kawaii sticker layer — fixed corners, gentle float animation */
+.deco-layer {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 1;
-  opacity: 0.4;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.deco {
+  position: absolute;
+  user-select: none;
+  animation: float 6s ease-in-out infinite;
+}
+.deco-1 { top: 18%;    left: 4%;  animation-duration: 6s;   }
+.deco-2 { top: 8%;     right: 7%; animation-duration: 7s;   animation-delay: 1s; }
+.deco-3 { bottom: 14%; left: 6%;  animation-duration: 5.5s; animation-delay: 2s; }
+.deco-4 { bottom: 22%; right: 5%; animation-duration: 6.5s; animation-delay: 0.5s; }
+.deco-5 { top: 46%;    right: 3%; animation-duration: 8s;   animation-delay: 1.5s; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  50%      { transform: translateY(-12px) rotate(calc(var(--rot, 0deg) + 6deg)); }
 }
 
 @keyframes fade-up {
@@ -145,6 +193,21 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes enter-fwd {
+  from { opacity: 0; transform: translateX(24px) rotate(2deg); }
+  to   { opacity: 1; transform: translateX(0)   rotate(0); }
+}
+
+@keyframes enter-bwd {
+  from { opacity: 0; transform: translateX(-24px) rotate(-2deg); }
+  to   { opacity: 1; transform: translateX(0)    rotate(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
