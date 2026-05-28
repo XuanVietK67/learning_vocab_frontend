@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { Wordmark } from "@/components/auth/wordmark";
 import { logoutAction } from "@/lib/actions/logout";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AdminSidebar } from "./_shell/admin-sidebar";
 
 // Admin gate. Mirrors the (onboarding) layout's redirect chain so it stays
 // consistent with postAuthRedirect — anyone reaching /admin who isn't an
@@ -38,7 +39,10 @@ export default async function AdminLayout({
           </form>
         </nav>
       </header>
-      <main className="flex flex-1 flex-col px-6 pb-12 pt-4">{children}</main>
+      <div className="flex flex-1 gap-6 px-6 pb-12 pt-2">
+        <AdminSidebar />
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
     </div>
   );
 }

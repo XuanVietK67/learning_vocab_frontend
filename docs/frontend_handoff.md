@@ -320,6 +320,9 @@ GET /v1/vocabularies?language=en&cefrLevel=A2&translationLang=vi&page=1&limit=20
           ],
           "examples": []
         }
+      ],
+      "topics": [
+        { "id": "tp-001", "slug": "education", "name": "Education", "description": null, "iconUrl": null }
       ]
     }
   ],
@@ -329,7 +332,7 @@ GET /v1/vocabularies?language=en&cefrLevel=A2&translationLang=vi&page=1&limit=20
 }
 ```
 
-A `Vocabulary` always carries one or more **senses** (distinct meanings). `translations[]` and `examples[]` live **inside** a sense — the top-level vocabulary no longer exposes them. Different senses can carry different `imageUrl` values; `audioUrl` lives on the vocabulary (pronunciation is shared across senses). Senses are returned ordered by `senseOrder ASC`.
+A `Vocabulary` always carries one or more **senses** (distinct meanings). `translations[]` and `examples[]` live **inside** a sense — the top-level vocabulary no longer exposes them. Different senses can carry different `imageUrl` values; `audioUrl` lives on the vocabulary (pronunciation is shared across senses). Senses are returned ordered by `senseOrder ASC`. The top-level `topics[]` (sorted by slug) lists every topic linked to the vocabulary via `vocabulary_topics`; it is `[]` when the word has no topics. Each entry matches the `Topic` shape from `/v1/topics`.
 
 ### `GET /v1/vocabularies/:id`
 Fetch one vocabulary with all of its senses, translations, and examples. No auth.
@@ -402,6 +405,73 @@ Partial update of top-level fields only (`language`, `lemma`, `partOfSpeech`, `i
 
 Requires JWT **and** `role = 'admin'` (`403` otherwise).
 
+### `GET /v1/admin/vocabularies`
+Lists the entire `vocabularies` table (system + user-created) with admin-only fields inlined.
+
+**Query params** (all optional unless noted)
+
+| Name | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `language` | string (ISO 639) | — | e.g. `en`, `pt-BR` |
+| `cefrLevel` | `A1`–`C2` | — | |
+| `topic` | slug | — | inner-joins on `vocabulary_topics` |
+| `q` | string | — | `lemma ILIKE '<q>%'` (prefix) |
+| `source` | `system` \| `user` | — | |
+| `isApproved` | `true` \| `false` | — | empty / missing / other = no filter |
+| `visibility` | `system` \| `private` \| `public` | — | |
+| `createdByUserId` | uuid | — | scopes to one user's submissions |
+| `translationLang` | string (ISO 639) | — | restricts hydrated translations to one language |
+| `sortBy` | `createdAt` \| `frequencyRank` | `createdAt` | |
+| `sortDir` | `asc` \| `desc` | `asc` | tie-breaks on `lemma ASC` |
+| `page` | int ≥ 1 | `1` | |
+| `limit` | int 1–100 | `20` | |
+
+**Response 200**
+
+```json
+{
+  "data": [
+    {
+      "id": "8e1a0e9b-2c4b-4f6d-9a0e-1a3d5c7e9b11",
+      "language": "en",
+      "lemma": "apple",
+      "partOfSpeech": "noun",
+      "ipa": "ˈæp.əl",
+      "cefrLevel": "A1",
+      "frequencyRank": 1024,
+      "audioUrl": null,
+      "source": "system",
+      "visibility": "system",
+      "isApproved": true,
+      "createdByUserId": null,
+      "createdAt": "2026-05-01T08:12:33.000Z",
+      "updatedAt": "2026-05-02T09:00:00.000Z",
+      "senses": [
+        {
+          "id": "…",
+          "senseOrder": 1,
+          "gloss": "fruit",
+          "definition": null,
+          "imageUrl": null,
+          "translations": [
+            { "id": "…", "language": "vi", "translation": "quả táo", "note": null }
+          ],
+          "examples": [
+            { "id": "…", "sentence": "I ate an apple.", "translation": null, "source": "manual" }
+          ]
+        }
+      ],
+      "topics": [
+        { "id": "tp-002", "slug": "food", "name": "Food", "description": null, "iconUrl": null }
+      ]
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 1
+}
+```
+
 ### `POST /v1/admin/vocabularies`
 Body identical to `POST /v1/me/vocabularies`, but `source` is `'system'` on the resulting row. **409** on duplicate natural key — use bulk-import for upsert semantics.
 
@@ -450,6 +520,108 @@ Same partial-update semantics as the user endpoint. Returns the updated `Vocabul
 
 ### `DELETE /v1/admin/vocabularies/:id`
 **Response 204**.
+
+### `POST /v1/admin/vocabularies/:id/senses`
+Append a new sense. `senseOrder` is auto-assigned to `max+1`. Translations and examples are optional at create time — both can be added later via the dedicated subresource routes.
+
+**Request body**
+
+```json
+{
+  "gloss": "company",
+  "definition": "An American technology company.",
+  "imageUrl": null,
+  "translations": [
+    { "language": "vi", "translation": "công ty Apple" }
+  ],
+  "examples": [
+    { "sentence": "Apple released a new product." }
+  ]
+}
+```
+
+**Response 201**: the created `Sense` with its `translations[]` and `examples[]` inlined.
+
+### `PATCH /v1/admin/vocabularies/:id/senses/:senseId`
+Patch any subset of `gloss`, `definition`, `imageUrl`. Cannot reorder via this endpoint — use `PUT /senses/reorder`.
+
+**Response 200**: the updated `Sense` (with translations + examples).
+
+### `DELETE /v1/admin/vocabularies/:id/senses/:senseId`
+**Response 204**. Cascades to the sense's translations and examples. Remaining sibling senses are compacted so `senseOrder` stays contiguous `1..N`.
+
+### `PUT /v1/admin/vocabularies/:id/senses/reorder`
+Reassign `senseOrder` by array position (`senseIds[0]` becomes order 1, `senseIds[1]` becomes 2, …).
+
+**Request body**
+
+```json
+{ "senseIds": ["…sense-uuid-A…", "…sense-uuid-B…", "…sense-uuid-C…"] }
+```
+
+`senseIds` must be a permutation of the vocab's current sense ids — same length, same members, no duplicates. Returns `400` otherwise.
+
+**Response 200**: the full sense list in the new order, each with translations + examples.
+
+### `POST /v1/admin/vocabularies/:id/senses/:senseId/translations`
+**Request body**
+
+```json
+{ "language": "vi", "translation": "quả táo", "note": null }
+```
+
+- `language`: ISO 639-1 (e.g. `en`, `vi`, `pt-BR`).
+- 409 if `(senseId, language, translation)` already exists.
+
+**Response 201**: `Translation`.
+
+### `PATCH /v1/admin/vocabularies/:id/senses/:senseId/translations/:translationId`
+Body: any subset of `language`, `translation`, `note`. Re-checks the unique `(senseId, language, translation)` constraint — 409 on conflict.
+
+**Response 200**: updated `Translation`.
+
+### `DELETE /v1/admin/vocabularies/:id/senses/:senseId/translations/:translationId`
+**Response 204**.
+
+### `POST /v1/admin/vocabularies/:id/senses/:senseId/examples`
+**Request body**
+
+```json
+{ "sentence": "I ate an apple.", "translation": "Tôi đã ăn một quả táo.", "source": "manual" }
+```
+
+- `source` defaults to `"manual"` if omitted.
+
+**Response 201**: `Example`.
+
+### `PATCH /v1/admin/vocabularies/:id/senses/:senseId/examples/:exampleId`
+Body: any subset of `sentence`, `translation`, `source`.
+
+**Response 200**: updated `Example`.
+
+### `DELETE /v1/admin/vocabularies/:id/senses/:senseId/examples/:exampleId`
+**Response 204**.
+
+### `PUT /v1/admin/vocabularies/:id/topics`
+Replace the entire topic-link set for the vocabulary. Set-replace semantics — slugs not present in the body are unlinked, slugs not currently linked are linked, the rest is left alone.
+
+**Request body**
+
+```json
+{ "slugs": ["food", "fruit"] }
+```
+
+- `slugs` size 0–32; empty `[]` clears all topic links.
+- All slugs must exist in the topic catalog — `400` with the list of unknown slugs otherwise.
+
+**Response 200**: the resulting topic set, sorted by slug.
+
+```json
+[
+  { "id": "…", "slug": "food", "name": "Food & Drink", "description": null, "iconUrl": null },
+  { "id": "…", "slug": "fruit", "name": "Fruit", "description": null, "iconUrl": null }
+]
+```
 
 ---
 
