@@ -54,4 +54,15 @@ export const authApi = {
     }),
 
   me: () => request<UserResponse>("/v1/auth/me"),
+
+  sendEmailVerification: () =>
+    request<{ expiresAt: string }>("/v1/auth/email/send-verification", {
+      method: "POST",
+    }),
+
+  verifyEmail: (code: string) =>
+    request<UserResponse>("/v1/auth/email/verify", {
+      method: "POST",
+      body: { code },
+    }),
 };

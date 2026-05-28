@@ -2,6 +2,7 @@
 
 import { authApi } from "@/lib/api/auth";
 import { setAuthCookies } from "@/lib/auth/cookies";
+import { maybeSendVerification } from "@/lib/auth/maybe-send-verification";
 import { postAuthRedirect } from "@/lib/auth/post-auth-redirect";
 import type { ActionResult } from "./result";
 
@@ -12,6 +13,7 @@ export async function signInWithGoogleAction(
   try {
     const auth = await authApi.google(idToken);
     await setAuthCookies(auth);
+    await maybeSendVerification(auth.user);
     return { success: true, redirect: postAuthRedirect(auth.user) };
   } catch {
     return { success: false, error: "Google sign-in failed. Please try again." };
@@ -26,6 +28,7 @@ export async function signInWithAppleAction(
   try {
     const auth = await authApi.apple(idToken, fullName);
     await setAuthCookies(auth);
+    await maybeSendVerification(auth.user);
     return { success: true, redirect: postAuthRedirect(auth.user) };
   } catch {
     return { success: false, error: "Apple sign-in failed. Please try again." };
@@ -39,6 +42,7 @@ export async function signInWithGithubAction(
   try {
     const auth = await authApi.github(code);
     await setAuthCookies(auth);
+    await maybeSendVerification(auth.user);
     return { success: true, redirect: postAuthRedirect(auth.user) };
   } catch {
     return { success: false, error: "GitHub sign-in failed. Please try again." };

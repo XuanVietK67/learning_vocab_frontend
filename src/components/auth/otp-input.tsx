@@ -95,9 +95,9 @@ export function AuthOtpInput({
           autoFocus={autoFocus && i === 0}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            "size-14 rounded-md border border-line-2 bg-card text-center text-[26px] font-medium tabular-nums text-ink outline-none transition-colors",
-            "focus:border-accent focus:ring-2 focus:ring-accent/40",
-            c && "border-ink-2",
+            "size-14 rounded-xl border-2 border-line bg-card text-center text-[26px] font-semibold tabular-nums text-ink outline-none transition-all duration-150",
+            "focus:-translate-y-px focus:border-accent focus:ring-4 focus:ring-accent-soft",
+            c && "animate-pop border-accent bg-accent-soft text-accent",
           )}
           style={{ width: 56, height: 64 }}
         />
