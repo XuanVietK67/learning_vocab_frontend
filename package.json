@@ -6,10 +6,12 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/copy-flags.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
+    "circle-flags": "^2.8.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "input-otp": "^1.4.2",

@@ -3,6 +3,7 @@
 import { authApi } from "@/lib/api/auth";
 import { isApiError } from "@/lib/api/types";
 import { setAuthCookies } from "@/lib/auth/cookies";
+import { postAuthRedirect } from "@/lib/auth/post-auth-redirect";
 import { RegisterSchema, type RegisterInput } from "@/lib/validators/auth";
 import { flattenZod, type ActionResult } from "./result";
 
@@ -20,10 +21,7 @@ export async function registerAction(
       username: parsed.data.username,
     });
     await setAuthCookies(auth);
-    return {
-      success: true,
-      redirect: `/verify-email?email=${encodeURIComponent(auth.user.email)}`,
-    };
+    return { success: true, redirect: postAuthRedirect(auth.user) };
   } catch (e) {
     if (isApiError(e, 409)) {
       return {

@@ -10,6 +10,7 @@ const AUTH_PUBLIC_ROUTES = new Set([
   "/2fa",
 ]);
 
+
 const ACCESS_COOKIE = "lexa_access";
 const REFRESH_COOKIE = "lexa_refresh";
 
@@ -35,6 +36,10 @@ export function proxy(request: NextRequest) {
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
+
+  // The isOnboarded gate (redirect to /onboarding when false) lives in the
+  // (onboarding) layout via getCurrentUser, not here — middleware can't read
+  // server-only cookies through the API without an extra round-trip per nav.
 
   return NextResponse.next();
 }

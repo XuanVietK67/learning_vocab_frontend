@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { signInAction } from "@/lib/actions/sign-in";
 import { magicLinkAction } from "@/lib/actions/stubs/magic-link";
+import { isAuthGate } from "@/lib/auth/post-auth-redirect";
 import { SignInSchema, type SignInInput } from "@/lib/validators/auth";
 
 type Mode = "password" | "magic-link";
@@ -73,7 +74,13 @@ export function SignInForm() {
         }
         return;
       }
-      router.push(nextParam ?? res.redirect ?? "/");
+      // Auth gates (verify-email, onboarding) take precedence over `?next=`
+      // — the user can't reach the requested page until they clear the gate.
+      const dest =
+        res.redirect && isAuthGate(res.redirect)
+          ? res.redirect
+          : (nextParam ?? res.redirect ?? "/");
+      router.push(dest);
     });
   };
 
