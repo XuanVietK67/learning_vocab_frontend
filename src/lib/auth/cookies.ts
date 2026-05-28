@@ -1,11 +1,13 @@
 import { cookies } from "next/headers";
 import type { AuthResponse } from "@/lib/api/types";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  ACCESS_MAX_AGE,
+  REFRESH_MAX_AGE,
+} from "./cookie-config";
 
-export const ACCESS_COOKIE = "lexa_access";
-export const REFRESH_COOKIE = "lexa_refresh";
-
-const ACCESS_MAX_AGE = 60 * 15;           // 15m, matches backend JWT lifetime
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 30; // 30d, matches backend refresh lifetime
+export { ACCESS_COOKIE, REFRESH_COOKIE };
 
 export async function setAuthCookies(auth: AuthResponse) {
   const jar = await cookies();

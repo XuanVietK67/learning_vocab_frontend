@@ -73,10 +73,18 @@ async function refreshOnce(): Promise<string | null> {
         { method: "POST", body: { refreshToken } },
         null,
       );
-      await setAuthCookies(auth);
+      // cookies().set() throws inside an RSC render — proxy.ts is the
+      // primary refresh path and persists the cookie there. This fallback
+      // still returns the fresh access token so the in-flight request
+      // succeeds; the browser picks up the new cookie on the next nav.
+      try {
+        await setAuthCookies(auth);
+      } catch {}
       return auth.accessToken;
     } catch {
-      await clearAuthCookies();
+      try {
+        await clearAuthCookies();
+      } catch {}
       return null;
     } finally {
       refreshInFlight = null;
