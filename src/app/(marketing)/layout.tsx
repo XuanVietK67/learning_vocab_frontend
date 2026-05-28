@@ -45,9 +45,7 @@ export default async function MarketingLayout({
           )}
         </nav>
       </header>
-      <main className="flex flex-1 items-center justify-center px-6 pb-12 pt-4">
-        {children}
-      </main>
+      <main className="flex flex-1 flex-col px-6 pb-12 pt-4">{children}</main>
     </div>
   );
 }
