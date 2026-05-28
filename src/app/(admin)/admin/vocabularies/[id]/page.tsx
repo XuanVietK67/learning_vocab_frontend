@@ -132,7 +132,13 @@ export default async function VocabularyDetailPage({ params, searchParams }: Pag
 
       {tab === "overview" && <OverviewForm vocab={vocab} />}
       {tab === "senses" && <SensesEditor vocab={vocab} />}
-      {tab === "topics" && <TopicsEditor vocabId={vocab.id} catalog={topics} initialSlugs={[]} />}
+      {tab === "topics" && (
+        <TopicsEditor
+          vocabId={vocab.id}
+          catalog={topics}
+          initialSlugs={vocab.topics?.map((t) => t.slug) ?? []}
+        />
+      )}
     </div>
   );
 }

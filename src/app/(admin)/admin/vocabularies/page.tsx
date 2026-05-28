@@ -86,6 +86,14 @@ function sourceTone(source: AdminVocabulary["source"]): "rainbow-3" | "rainbow-5
   return source === "system" ? "rainbow-3" : "rainbow-5";
 }
 
+const TOPIC_TONES = ["rainbow-1", "rainbow-2", "rainbow-3", "rainbow-4", "rainbow-5"] as const;
+
+function topicTone(slug: string): (typeof TOPIC_TONES)[number] {
+  let hash = 0;
+  for (let i = 0; i < slug.length; i++) hash = (hash * 31 + slug.charCodeAt(i)) | 0;
+  return TOPIC_TONES[Math.abs(hash) % TOPIC_TONES.length];
+}
+
 export default async function AdminVocabulariesPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const { query, values, hasFilters } = parseQuery(sp);
@@ -154,6 +162,7 @@ export default async function AdminVocabulariesPage({ searchParams }: PageProps)
                   <th className="px-3 py-3 font-semibold">Lang</th>
                   <th className="px-3 py-3 font-semibold">POS</th>
                   <th className="px-3 py-3 font-semibold">CEFR</th>
+                  <th className="px-3 py-3 font-semibold">Topics</th>
                   <th className="px-3 py-3 font-semibold">Source</th>
                   <th className="px-3 py-3 font-semibold">Approved</th>
                   <th className="px-3 py-3 font-semibold">Senses</th>
@@ -179,6 +188,22 @@ export default async function AdminVocabulariesPage({ searchParams }: PageProps)
                     <td className="px-3 py-3 text-ink-2">{v.partOfSpeech ?? "—"}</td>
                     <td className="px-3 py-3">
                       {v.cefrLevel ? <Pill tone="accent">{v.cefrLevel}</Pill> : "—"}
+                    </td>
+                    <td className="px-3 py-3">
+                      {v.topics && v.topics.length > 0 ? (
+                        <div className="flex max-w-56 flex-wrap gap-1">
+                          {v.topics.slice(0, 3).map((t) => (
+                            <Pill key={t.id} tone={topicTone(t.slug)}>
+                              {t.name}
+                            </Pill>
+                          ))}
+                          {v.topics.length > 3 && (
+                            <Pill tone="neutral">+{v.topics.length - 3}</Pill>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <Pill tone={sourceTone(v.source)}>{v.source}</Pill>

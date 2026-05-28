@@ -47,6 +47,7 @@ export type AdminVocabulary = {
   createdAt?: string;
   updatedAt?: string;
   senses: AdminSense[];
+  topics?: Topic[];
 };
 
 export type AdminVocabListQuery = {
