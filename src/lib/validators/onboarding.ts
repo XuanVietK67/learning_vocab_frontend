@@ -13,6 +13,11 @@ export const OnboardingSchema = z
       .int("Minutes must be a whole number.")
       .min(5, "Pick at least 5 minutes a day.")
       .max(240, "Cap is 240 minutes a day."),
+    weeklyVocabGoal: z
+      .number()
+      .int("Words must be a whole number.")
+      .min(5, "Pick at least 5 words a week.")
+      .max(250, "Cap is 250 words a week."),
   })
   .refine((d) => d.nativeLanguage !== d.targetLanguage, {
     message: "Native and target language must be different.",
