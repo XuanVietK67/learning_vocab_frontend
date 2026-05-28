@@ -3,22 +3,28 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { ArrowRight } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { AuthCard, CardFoot, CardHead } from "@/components/auth/auth-card";
+import { AuthOtpInput } from "@/components/auth/otp-input";
 import { Banner } from "@/components/auth/banner";
 import { Spinner } from "@/components/auth/spinner";
 import { VerifyLetter } from "@/components/auth/verify-letter";
 import { Button } from "@/components/ui/button";
-import { checkVerificationAction } from "@/lib/actions/check-verification";
-import { resendVerificationAction } from "@/lib/actions/stubs/resend-verification";
+import { resendVerificationAction } from "@/lib/actions/resend-verification";
+import { verifyEmailAction } from "@/lib/actions/verify-email";
+
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export function VerifyEmailView({ email }: { email: string }) {
   const router = useRouter();
-  const [cooldown, setCooldown] = React.useState(0);
-  const [resent, setResent] = React.useState(false);
-  const [notice, setNotice] = React.useState<{ kind: "info" | "error"; msg: string } | null>(null);
+  const [code, setCode] = React.useState("");
+  const [shake, setShake] = React.useState(false);
+  const [cooldown, setCooldown] = React.useState(RESEND_COOLDOWN_SECONDS);
+  const [notice, setNotice] = React.useState<
+    { kind: "info" | "error"; msg: string } | null
+  >(null);
+  const [verifyPending, startVerify] = React.useTransition();
   const [resendPending, startResend] = React.useTransition();
-  const [checkPending, startCheck] = React.useTransition();
 
   React.useEffect(() => {
     if (cooldown <= 0) return;
@@ -26,43 +32,62 @@ export function VerifyEmailView({ email }: { email: string }) {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  const onResend = () => {
-    if (cooldown > 0) return;
+  const onSubmit = (value?: string) => {
+    const submitted = (value ?? code).trim();
+    if (submitted.length !== 6 || verifyPending) return;
     setNotice(null);
-    startResend(async () => {
-      const res = await resendVerificationAction({ email });
+    startVerify(async () => {
+      const res = await verifyEmailAction({ code: submitted });
       if (res.success) {
-        setResent(true);
-        setCooldown(res.cooldownSeconds);
+        router.push(res.redirect ?? "/");
+        return;
       }
+      setCode("");
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+      setNotice({
+        kind: "error",
+        msg: res.error ?? res.fieldErrors?.code ?? "Wrong code. Try again.",
+      });
     });
   };
 
-  const onContinue = () => {
+  const onResend = () => {
+    if (cooldown > 0 || resendPending) return;
     setNotice(null);
-    startCheck(async () => {
-      const res = await checkVerificationAction();
-      if (res.state === "ok") {
-        router.push(res.redirect);
+    setCode("");
+    startResend(async () => {
+      const res = await resendVerificationAction();
+      if (res.success) {
+        setCooldown(RESEND_COOLDOWN_SECONDS);
+        setNotice({ kind: "info", msg: "A new 6-digit code is on its way." });
         return;
       }
-      if (res.state === "still-unverified") {
-        setNotice({
-          kind: "error",
-          msg: "We haven't received the verification yet. Click the link in your email, then try again.",
-        });
-        return;
-      }
-      // session expired — bounce to sign in
-      router.push("/login");
+      setCooldown(res.retryAfterSeconds ?? RESEND_COOLDOWN_SECONDS);
+      setNotice({ kind: "error", msg: res.error });
     });
   };
 
   return (
-    <AuthCard>
+    <AuthCard className="relative overflow-hidden rounded-2xl">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -left-6 -top-6 size-24 rounded-full opacity-60 blur-2xl"
+        style={{ background: "var(--rainbow-2)" }}
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-8 -right-10 size-28 rounded-full opacity-50 blur-2xl"
+        style={{ background: "var(--rainbow-4)" }}
+      />
+
       <VerifyLetter />
       <CardHead
-        eyebrow="One last step"
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5 text-accent">
+            <Sparkles className="size-3.5" aria-hidden /> One last step
+          </span>
+        }
         title={
           <>
             Verify your <em>email</em>.
@@ -70,25 +95,31 @@ export function VerifyEmailView({ email }: { email: string }) {
         }
         sub={
           <>
-            We sent a verification link to <b className="text-ink">{email}</b>.
-            Click it to activate your account — it expires in 24 hours.
+            We popped a 6-digit code into <b className="text-ink">{email}</b>.
+            Type it in below — it expires in 10 minutes.
           </>
         }
       />
 
-      {resent && !notice && <Banner kind="info">A new verification link is on its way.</Banner>}
       {notice && <Banner kind={notice.kind}>{notice.msg}</Banner>}
 
+      <AuthOtpInput
+        value={code}
+        onChange={setCode}
+        shake={shake}
+        onComplete={(v) => onSubmit(v)}
+      />
+
       <Button
-        onClick={onContinue}
-        disabled={checkPending}
-        className="h-13 w-full gap-2 rounded-md bg-ink text-bg hover:bg-ink-2"
+        onClick={() => onSubmit()}
+        disabled={code.length !== 6 || verifyPending}
+        className="mt-2 h-13 w-full gap-2 rounded-2xl bg-accent text-accent-foreground shadow-[0_10px_24px_-12px_rgba(255,107,107,0.6)] hover:brightness-95 disabled:bg-line-2 disabled:text-muted-foreground disabled:shadow-none"
       >
-        {checkPending ? (
+        {verifyPending ? (
           <Spinner />
         ) : (
           <>
-            I&apos;ve verified — continue <ArrowRight className="size-4" aria-hidden />
+            Verify <Sparkles className="size-4" aria-hidden />
           </>
         )}
       </Button>
@@ -100,9 +131,13 @@ export function VerifyEmailView({ email }: { email: string }) {
             type="button"
             onClick={onResend}
             disabled={resendPending || cooldown > 0}
-            className="cursor-pointer border-b border-line-2 pb-px font-medium text-ink hover:border-ink disabled:cursor-default disabled:text-muted-2 disabled:hover:border-line-2"
+            className="cursor-pointer rounded-full bg-accent-soft px-3 py-1 font-medium text-accent transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-default disabled:bg-line disabled:text-muted-2 disabled:hover:bg-line"
           >
-            {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend link"}
+            {resendPending
+              ? "Sending…"
+              : cooldown > 0
+                ? `Resend in ${cooldown}s`
+                : "Resend code"}
           </button>
         </div>
       </CardFoot>

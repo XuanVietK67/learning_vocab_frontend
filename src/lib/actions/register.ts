@@ -3,6 +3,7 @@
 import { authApi } from "@/lib/api/auth";
 import { isApiError } from "@/lib/api/types";
 import { setAuthCookies } from "@/lib/auth/cookies";
+import { maybeSendVerification } from "@/lib/auth/maybe-send-verification";
 import { postAuthRedirect } from "@/lib/auth/post-auth-redirect";
 import { RegisterSchema, type RegisterInput } from "@/lib/validators/auth";
 import { flattenZod, type ActionResult } from "./result";
@@ -21,6 +22,7 @@ export async function registerAction(
       username: parsed.data.username,
     });
     await setAuthCookies(auth);
+    await maybeSendVerification(auth.user);
     return { success: true, redirect: postAuthRedirect(auth.user) };
   } catch (e) {
     if (isApiError(e, 409)) {

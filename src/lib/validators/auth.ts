@@ -47,12 +47,6 @@ export const ResetSchema = z
   });
 export type ResetInput = z.infer<typeof ResetSchema>;
 
-export const VerifyEmailSchema = z.object({ token: z.string().min(1) });
-export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>;
-
-export const ResendVerificationSchema = z.object({ email: emailField });
-export type ResendVerificationInput = z.infer<typeof ResendVerificationSchema>;
-
 export const OtpSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code."),
 });
