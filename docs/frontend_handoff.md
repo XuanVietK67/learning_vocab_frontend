@@ -166,6 +166,7 @@ Return the currently authenticated user. **JWT required.**
   "targetLanguage": null,
   "proficiencyLevel": null,
   "dailyGoalMinutes": null,
+  "weeklyVocabGoal": null,
   "createdAt": "2026-05-26T08:30:00.000Z",
   "updatedAt": "2026-05-26T08:30:00.000Z"
 }
@@ -217,7 +218,7 @@ All endpoints require JWT and only allow the caller to act on their own user rec
 **Response 200**: `UserResponse` (same shape as `/v1/auth/me`).
 
 ### `PATCH /v1/users/:id`
-Update onboarding fields. Sending all four flips `isOnboarded` to `true`.
+Update onboarding fields. Sending all five flips `isOnboarded` to `true`.
 
 **Request body** (any subset; all optional)
 
@@ -226,13 +227,31 @@ Update onboarding fields. Sending all four flips `isOnboarded` to `true`.
   "nativeLanguage": "vi",
   "targetLanguage": "en",
   "proficiencyLevel": "B1",
-  "dailyGoalMinutes": 20
+  "dailyGoalMinutes": 20,
+  "weeklyVocabGoal": 50
 }
 ```
 
 - `dailyGoalMinutes`: integer 5–240.
+- `weeklyVocabGoal`: integer 5–250 (target new vocabularies to learn per week).
 
 **Response 200**: updated `UserResponse`.
+
+---
+
+## Admin Users — `/v1/admin/users`
+
+Admin-only surface for user accounts. **JWT required** and the caller's `role` must be `"admin"` (else `403`).
+
+### `DELETE /v1/admin/users/:id`
+Hard-delete a non-admin user. Cascades remove the user's refresh tokens, OAuth identities, verification codes, progress rows, and personally-owned decks. User-created vocabularies (`source='user'`) are kept; their `created_by_user_id` is set to `NULL`.
+
+**Response 204** (empty body).
+
+**Errors**
+
+- `403` — caller is not an admin, or `cannot delete an admin account` (target is an admin).
+- `404` — user not found.
 
 ---
 

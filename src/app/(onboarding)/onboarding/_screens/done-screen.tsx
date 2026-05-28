@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
-import { getGoal } from "@/lib/data/goals";
+import { getGoal, getVocabGoal } from "@/lib/data/goals";
 import { getLanguage } from "@/lib/data/languages";
 import { getProficiency } from "@/lib/data/proficiency";
 import type { OnboardingState } from "../onboarding-flow";
@@ -13,6 +13,7 @@ export function DoneScreen({ state }: { state: OnboardingState }) {
   const target = getLanguage(state.targetLanguage);
   const prof = getProficiency(state.proficiencyLevel);
   const goal = getGoal(state.dailyGoalMinutes);
+  const vocab = getVocabGoal(state.weeklyVocabGoal);
 
   return (
     <div className="flex max-w-[640px] flex-col items-start gap-4 pt-8">
@@ -44,6 +45,11 @@ export function DoneScreen({ state }: { state: OnboardingState }) {
         <SummaryRow label="Learning" value={target?.native ?? "—"} suffix={target?.name} />
         <SummaryRow label="Level" value={prof?.title ?? "—"} suffix={prof?.code} />
         <SummaryRow label="Daily goal" value={`${goal?.mins ?? "—"} min`} suffix={goal?.title} />
+        <SummaryRow
+          label="Weekly goal"
+          value={`${vocab?.count ?? "—"} words`}
+          suffix={vocab?.title}
+        />
       </div>
 
       <div className="flex flex-wrap gap-3">

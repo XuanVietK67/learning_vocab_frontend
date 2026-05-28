@@ -17,13 +17,14 @@ export type OnboardingState = {
   targetLanguage: string | null;
   proficiencyLevel: ProficiencyCode | null;
   dailyGoalMinutes: number | null;
+  weeklyVocabGoal: number | null;
 };
 
 const STEPS: StepDef[] = [
   { key: "nativeLanguage", label: "Native" },
   { key: "targetLanguage", label: "Target" },
   { key: "proficiencyLevel", label: "Level" },
-  { key: "dailyGoalMinutes", label: "Daily goal" },
+  { key: "dailyGoalMinutes", label: "Goals" },
 ];
 
 type Phase = "form" | "sending" | "done" | "error";
@@ -41,6 +42,7 @@ export function OnboardingFlow() {
     targetLanguage: null,
     proficiencyLevel: null,
     dailyGoalMinutes: null,
+    weeklyVocabGoal: null,
   });
 
   const set = React.useCallback(
@@ -52,7 +54,7 @@ export function OnboardingFlow() {
     nativeLanguage: !!state.nativeLanguage,
     targetLanguage: !!state.targetLanguage,
     proficiencyLevel: !!state.proficiencyLevel,
-    dailyGoalMinutes: !!state.dailyGoalMinutes,
+    dailyGoalMinutes: !!state.dailyGoalMinutes && !!state.weeklyVocabGoal,
   };
   const allComplete = Object.values(completedMap).every(Boolean);
   const currentField = STEPS[step].key;
@@ -75,6 +77,7 @@ export function OnboardingFlow() {
       targetLanguage: state.targetLanguage as string,
       proficiencyLevel: state.proficiencyLevel as ProficiencyCode,
       dailyGoalMinutes: state.dailyGoalMinutes as number,
+      weeklyVocabGoal: state.weeklyVocabGoal as number,
     });
     if (!res.success) {
       setPhase("error");
