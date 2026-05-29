@@ -1,12 +1,11 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { learnApi, type StartSessionInput } from "@/lib/api/learn";
+import { learnApi, type LearnSession, type StartSessionInput } from "@/lib/api/learn";
 import { isApiError } from "@/lib/api/types";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export type StartSessionResult =
-  | { success: true; redirect: string }
+  | { success: true; session: LearnSession; translationLang: string | null }
   | { success: false; error: string };
 
 export async function startSessionAction(
@@ -20,10 +19,11 @@ export async function startSessionAction(
     return { success: false, error: "Finish setup before starting a session." };
   }
 
+  const translationLang = input.translationLang ?? user.nativeLanguage ?? undefined;
   const body: StartSessionInput = {
     mode: input.mode,
     limit: input.limit,
-    translationLang: input.translationLang ?? user.nativeLanguage ?? undefined,
+    translationLang,
   };
   if (input.mode === "topic") body.topicSlug = input.topicSlug;
   if (input.mode === "deck") body.deckId = input.deckId;
@@ -40,11 +40,8 @@ export async function startSessionAction(
     if (session.items.length === 0) {
       return { success: false, error: emptyMessage(session.emptyReason) };
     }
-    redirect(`/learn/${session.sessionId}`);
+    return { success: true, session, translationLang: translationLang ?? null };
   } catch (e) {
-    // Next's redirect throws — let it propagate
-    if (e && typeof e === "object" && "digest" in e) throw e;
-
     if (isApiError(e, 400)) {
       const msg = Array.isArray(e.body?.message) ? e.body.message[0] : e.body?.message;
       return { success: false, error: msg ?? "Couldn't start the session." };
@@ -54,9 +51,6 @@ export async function startSessionAction(
     }
     return { success: false, error: "Something went wrong. Please try again." };
   }
-
-  // unreachable — redirect() throws
-  return { success: false, error: "Couldn't start the session." };
 }
 
 function emptyMessage(reason: string | null): string {

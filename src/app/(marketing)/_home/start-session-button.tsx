@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { startSessionAction } from "@/lib/actions/start-session";
 import type { StartSessionInput } from "@/lib/api/learn";
+import { saveSession } from "@/lib/learn/session-store";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -36,13 +38,19 @@ export function StartSessionButton({
   size = "md",
   disabled,
 }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
 
   const onClick = () => {
     startTransition(async () => {
       const res = await startSessionAction(input);
-      if (!res.success) toast.error(res.error);
-      // success path: server action calls redirect() — nothing to do client-side
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      // Stash the signed items client-side, then hand off to the player route.
+      saveSession({ input, session: res.session, translationLang: res.translationLang });
+      router.push(`/learn/${res.session.sessionId}`);
     });
   };
 
