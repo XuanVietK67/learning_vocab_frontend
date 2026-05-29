@@ -106,6 +106,12 @@ export type ProgressRow = {
   repetitions: number;
   easeFactor: number;
   intervalDays: number;
+  /**
+   * Anki-style learning step the card sits on: `0..N-1` while cycling the
+   * minute-scale steps, `null` once it graduates to the day-scale ladder.
+   * Drives a "step 1 of N" hint while present.
+   */
+  learningStepIndex: number | null;
   nextReviewAt: string;
   lastReviewedAt: string;
   correctCount: number;
@@ -125,11 +131,23 @@ export type SubmitAnswerInput = {
   sessionId: string;
 };
 
+/**
+ * A card the SRS rescheduled within the requeue window: a fresh signed question
+ * for the same vocab, to re-surface inside this session once the wall clock
+ * reaches `dueAtMs`. `null` when the next review is far enough out that the next
+ * `/session` call will handle it.
+ */
+export type Requeue = {
+  dueAtMs: number;
+  item: LearnItem;
+};
+
 export type AnswerResult = {
   correct: boolean;
   correctAnswer: string;
   quality: number;
   progress: ProgressRow;
+  requeue: Requeue | null;
 };
 
 export const learnApi = {
