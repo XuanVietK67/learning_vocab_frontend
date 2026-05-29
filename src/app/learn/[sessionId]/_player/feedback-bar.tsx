@@ -8,9 +8,16 @@ type Props = {
   correctAnswer: string;
   /** True for cloze_typing Levenshtein-1 / sentence_build one-swap (graded "close"). */
   almost?: boolean;
+  /**
+   * Anki learning step the card now sits on (`0`-based), or `null` once it has
+   * graduated to the day-scale ladder. When present the card will resurface in
+   * minutes, so we hint that it's still being learned.
+   */
+  stepIndex?: number | null;
 };
 
-export function FeedbackBar({ correct, correctAnswer, almost }: Props) {
+export function FeedbackBar({ correct, correctAnswer, almost, stepIndex }: Props) {
+  const inSteps = stepIndex != null;
   return (
     <div
       role="status"
@@ -36,6 +43,11 @@ export function FeedbackBar({ correct, correctAnswer, almost }: Props) {
         {!correct ? (
           <p className="text-ink-2">
             Answer: <span className="font-semibold">{correctAnswer}</span>
+          </p>
+        ) : null}
+        {inSteps ? (
+          <p className="mt-0.5 text-xs opacity-80">
+            Still learning · step {stepIndex! + 1}
           </p>
         ) : null}
       </div>

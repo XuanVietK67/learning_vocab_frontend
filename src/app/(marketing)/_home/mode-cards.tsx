@@ -1,7 +1,10 @@
-import { Sparkles, RotateCw, Clock } from "lucide-react";
+"use client";
+
+import * as React from "react";
+import { Sparkles, RotateCw, Inbox } from "lucide-react";
 import type { MeStats } from "@/lib/api/stats";
-import { formatTimeUntil } from "@/lib/utils";
 import { StartSessionButton } from "./start-session-button";
+import { NextReviewCountdown } from "./next-review-countdown";
 
 type Props = {
   stats: MeStats;
@@ -9,8 +12,40 @@ type Props = {
 
 export function ModeCards({ stats }: Props) {
   const dueCount = stats.dueNow;
-  const reviewDisabled = dueCount === 0;
-  const countdown = reviewDisabled ? formatTimeUntil(stats.nextDueAt) : null;
+  const statsCaughtUp = dueCount === 0;
+
+  // The picker can disagree with `stats.dueNow`: review excludes new cards, and
+  // daily tops up with fresh vocab — so a mode can be empty while dueNow > 0.
+  // When a start attempt comes back time-based-empty we capture its nextDueAt
+  // and let that card show the countdown, regardless of what stats reports.
+  const [reviewDueAt, setReviewDueAt] = React.useState<string | null>(null);
+  const [dailyDueAt, setDailyDueAt] = React.useState<string | null>(null);
+  // Daily came back empty: no due cards AND no fresh vocab at the user's level.
+  // Stats can't predict this up front, so it's set from the picker result.
+  const [dailyExhausted, setDailyExhausted] = React.useState(false);
+
+  // A confirmed empty result wins; otherwise fall back to stats when nothing is
+  // due at all (dueNow === 0).
+  const reviewNextDue = reviewDueAt ?? (statsCaughtUp ? stats.nextDueAt : null);
+  const dailyNextDue = dailyDueAt ?? (statsCaughtUp ? stats.nextDueAt : null);
+  const reviewDisabled = statsCaughtUp || reviewDueAt != null;
+
+  // Clear the daily empty state once its countdown elapses — by then a card has
+  // likely come due, so Daily has something to serve again.
+  const clearDaily = React.useCallback(() => {
+    setDailyDueAt(null);
+    setDailyExhausted(false);
+  }, []);
+
+  const dailyChips =
+    dailyExhausted || dailyNextDue ? (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {dailyExhausted ? <NoNewWordsChip /> : null}
+        {dailyNextDue ? (
+          <NextReviewCountdown nextDueAt={dailyNextDue} onExpire={clearDaily} />
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <section
@@ -19,30 +54,50 @@ export function ModeCards({ stats }: Props) {
     >
       <ModeCard
         title="Daily"
-        blurb="Mix of due cards and fresh words tuned to your level."
+        blurb={
+          dailyExhausted
+            ? "All caught up — no new words at your level right now."
+            : dailyNextDue
+              ? "All caught up on reviews — get ahead with fresh words."
+              : "Mix of due cards and fresh words tuned to your level."
+        }
+        chip={dailyChips}
         accent="rainbow-1"
         icon={<Sparkles className="size-5" aria-hidden />}
         cta={
-          <StartSessionButton input={{ mode: "daily", limit: 15 }}>
-            Start daily session
+          <StartSessionButton
+            input={{ mode: "daily", limit: 15 }}
+            disabled={dailyExhausted}
+            onTimeBasedEmpty={(due) => {
+              setDailyDueAt(due);
+              setDailyExhausted(true);
+            }}
+            onNoNewWords={() => setDailyExhausted(true)}
+          >
+            {dailyExhausted
+              ? "Nothing new right now"
+              : dailyNextDue
+                ? "Get ahead with new words"
+                : "Start daily session"}
           </StartSessionButton>
         }
       />
       <ModeCard
         title="Review"
         blurb={
-          reviewDisabled
-            ? countdown
-              ? "All caught up — nothing due right now."
-              : "Nothing enrolled yet. Start a Daily session to build your review queue."
-            : `${dueCount} card${dueCount === 1 ? "" : "s"} ready for review.`
+          reviewNextDue
+            ? "All caught up — nothing due right now."
+            : statsCaughtUp
+              ? "Nothing enrolled yet. Start a Daily session to build your review queue."
+              : `${dueCount} card${dueCount === 1 ? "" : "s"} ready for review.`
         }
         chip={
-          countdown ? (
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent">
-              <Clock className="size-3.5" aria-hidden />
-              Next review in {countdown}
-            </span>
+          reviewNextDue ? (
+            <NextReviewCountdown
+              nextDueAt={reviewNextDue}
+              className="mt-2"
+              onExpire={() => setReviewDueAt(null)}
+            />
           ) : null
         }
         accent="rainbow-4"
@@ -52,12 +107,22 @@ export function ModeCards({ stats }: Props) {
             input={{ mode: "review", limit: 15 }}
             variant="soft"
             disabled={reviewDisabled}
+            onTimeBasedEmpty={setReviewDueAt}
           >
             {reviewDisabled ? "Nothing due" : "Start review"}
           </StartSessionButton>
         }
       />
     </section>
+  );
+}
+
+function NoNewWordsChip() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      <Inbox className="size-3.5" aria-hidden />
+      No new words right now
+    </span>
   );
 }
 
