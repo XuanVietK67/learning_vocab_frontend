@@ -30,6 +30,7 @@ const EMPTY_STATS: MeStats = {
   reviewedToday: 0,
   dailyGoalMinutes: null,
   counts: { new: 0, learning: 0, review: 0, mastered: 0 },
+  nextDueAt: null,
 };
 
 type Props = { user: UserResponse };

@@ -88,6 +88,12 @@ export type LearnSession = {
   mode: LearnMode;
   enrolledNewlyCount: number;
   emptyReason: EmptyReason | null;
+  /**
+   * ISO timestamp of the soonest future-scheduled card. Populated only for the
+   * time-based empty reason (`no_due_cards`); null otherwise — the other
+   * reasons need a different action, not a clock.
+   */
+  nextDueAt: string | null;
   items: LearnItem[];
 };
 
