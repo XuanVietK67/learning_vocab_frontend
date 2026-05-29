@@ -7,9 +7,15 @@ import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { startSessionAction } from "@/lib/actions/start-session";
 import { submitAnswerAction } from "@/lib/actions/submit-answer";
-import type { AnswerResult } from "@/lib/api/learn";
+import type {
+  AnswerResult,
+  EmptyReason,
+  LearnMode,
+  StartSessionInput,
+} from "@/lib/api/learn";
 import { clearSession, loadSession, saveSession, type StoredSession } from "@/lib/learn/session-store";
 import { cn } from "@/lib/utils";
+import { SessionEmptyDialog } from "@/components/learn/session-empty-dialog";
 import { QuestionRouter } from "./question-router";
 import { SessionTopBar } from "./session-top-bar";
 import { FeedbackBar } from "./feedback-bar";
@@ -33,6 +39,12 @@ export function SessionPlayer({ sessionId }: { sessionId: string }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [, startRestart] = React.useTransition();
   const [restarting, setRestarting] = React.useState(false);
+  // Picker came back empty on restart — show the reason-aware dialog.
+  const [empty, setEmpty] = React.useState<{
+    reason: EmptyReason | null;
+    nextDueAt: string | null;
+    mode: LearnMode;
+  } | null>(null);
 
   const startedAt = React.useRef<number>(0);
   const { state: loadState, stored } = load;
@@ -97,21 +109,37 @@ export function SessionPlayer({ sessionId }: { sessionId: string }) {
     setIndex((i) => i + 1);
   }, []);
 
+  const runStart = React.useCallback(
+    (input: StartSessionInput) => {
+      setRestarting(true);
+      startRestart(async () => {
+        const res = await startSessionAction(input);
+        setRestarting(false);
+        if (res.success) {
+          setEmpty(null);
+          clearSession(sessionId);
+          saveSession({
+            input,
+            session: res.session,
+            translationLang: res.translationLang,
+          });
+          router.replace(`/learn/${res.session.sessionId}`);
+          return;
+        }
+        if (res.kind === "empty") {
+          setEmpty({ reason: res.reason, nextDueAt: res.nextDueAt, mode: input.mode });
+          return;
+        }
+        toast.error(res.error);
+      });
+    },
+    [sessionId, router, startRestart],
+  );
+
   const restart = React.useCallback(() => {
     if (!stored) return;
-    setRestarting(true);
-    startRestart(async () => {
-      const res = await startSessionAction(stored.input);
-      setRestarting(false);
-      if (!res.success) {
-        toast.error(res.error);
-        return;
-      }
-      clearSession(sessionId);
-      saveSession({ input: stored.input, session: res.session, translationLang: res.translationLang });
-      router.replace(`/learn/${res.session.sessionId}`);
-    });
-  }, [stored, sessionId, router, startRestart]);
+    runStart(stored.input);
+  }, [stored, runStart]);
 
   const exit = React.useCallback(() => {
     const answered = Object.keys(results).length > 0;
@@ -184,6 +212,17 @@ export function SessionPlayer({ sessionId }: { sessionId: string }) {
           enrolledNewlyCount={stored?.session.enrolledNewlyCount ?? 0}
           onRestart={restart}
           restarting={restarting}
+        />
+        <SessionEmptyDialog
+          open={empty !== null}
+          onOpenChange={(o) => {
+            if (!o) setEmpty(null);
+          }}
+          reason={empty?.reason ?? null}
+          nextDueAt={empty?.nextDueAt ?? null}
+          mode={empty?.mode ?? stored?.input.mode ?? "daily"}
+          onStartDaily={() => runStart({ mode: "daily", limit: 15 })}
+          pending={restarting}
         />
       </Centered>
     );

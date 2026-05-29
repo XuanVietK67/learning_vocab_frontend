@@ -12,6 +12,8 @@ export type MeStats = {
     review: number;
     mastered: number;
   };
+  /** ISO timestamp of the soonest future-scheduled card; null when nothing is queued ahead. */
+  nextDueAt: string | null;
 };
 
 export const statsApi = {
